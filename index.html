@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Shield - 방패 막기 게임</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Orbitron', monospace;
+            background: radial-gradient(circle, #1a1a3a, #0a0a1a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #00f3ff;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1a1a3a, #0a0a1a);
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-item {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+        }
+
+        #score {
+            color: #00f3ff;
+        }
+
+        #time {
+            color: #ff006e;
+        }
+
+        #speedIndicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            font-weight: 700;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 26, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        #gameOverScreen {
+            display: none;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 20px #00f3ff, 0 0 40px #00f3ff;
+            margin-bottom: 30px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #ffffff;
+            margin-bottom: 20px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .controls {
+            background: rgba(26, 26, 58, 0.8);
+            border: 2px solid #00f3ff;
+            border-radius: 10px;
+            padding: 20px 40px;
+            margin-top: 20px;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        .controls p {
+            font-size: 16px;
+            color: #ffffff;
+            margin: 5px 0;
+        }
+
+        .button {
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            background: #1a1a3a;
+            border: 2px solid #00f3ff;
+            border-radius: 10px;
+            padding: 15px 40px;
+            margin-top: 30px;
+            cursor: pointer;
+            text-shadow: 0 0 10px #00f3ff;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+            transition: all 0.3s;
+        }
+
+        .button:hover {
+            background: #00f3ff;
+            color: #0a0a1a;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.8);
+        }
+
+        .game-over-title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #ff006e;
+            text-shadow: 0 0 20px #ff006e, 0 0 40px #ff006e;
+            margin-bottom: 40px;
+        }
+
+        .result {
+            font-size: 24px;
+            color: #ffffff;
+            margin: 10px 0;
+        }
+
+        .result.score-result {
+            color: #00f3ff;
+            text-shadow: 0 0 10px #00f3ff;
+        }
+
+        .result.time-result {
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="hud">
+            <div id="score" class="hud-item">Score: 0</div>
+            <div id="time" class="hud-item">Time: 0.0s</div>
+        </div>
+
+        <div id="speedIndicator">Speed: x1.0</div>
+
+        <div id="startScreen">
+            <div class="title">ARCADE SHIELD</div>
+            <div class="subtitle">
+                4방향에서 날아오는 화살을 방패로 막아내세요!<br>
+                시간이 지날수록 난이도가 증가합니다.
+            </div>
+            <div class="controls">
+                <p>⬆️ W / ↑ - 위쪽 방패</p>
+                <p>⬇️ S / ↓ - 아래쪽 방패</p>
+                <p>⬅️ A / ← - 왼쪽 방패</p>
+                <p>➡️ D / → - 오른쪽 방패</p>
+            </div>
+            <button class="button" onclick="game.start()">SPACE를 눌러 시작</button>
+        </div>
+
+        <div id="gameOverScreen">
+            <div class="game-over-title">GAME OVER</div>
+            <div class="result score-result">Final Score: <span id="finalScore">0</span></div>
+            <div class="result time-result">Survival Time: <span id="finalTime">0.0</span>s</div>
+            <button class="button" onclick="game.restart()">SPACE를 눌러 재시작</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 설정 ====================
+        const CONFIG = {
+            canvas: {
+                width: 800,
+                height: 600
+            },
+            player: {
+                x: 400,
+                y: 300,
+                radius: 30,
+                shieldDistance: 50,
+                shieldSize: 50
+            },
+            arrow: {
+                initialSpeed: 2,  // 초기 속도 감소 (변화를 더 명확하게)
+                spawnInterval: 1500,
+                colors: ['#00f3ff', '#ff006e', '#00ff88', '#b300ff']
+            },
+            difficulty: {
+                speedIncreaseInterval: 5000, // 5초마다 증가 (더 빠른 변화)
+                speedMultiplier: 1.3,        // 속도 배율 증가 (더 극적인 변화)
+                spawnIntervalDecrease: 150   // 스폰 간격 더 빠르게 감소
+            }
+        };
+
+        // ==================== 유틸리티 ====================
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        function randomChoice(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        // ==================== 플레이어 클래스 ====================
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = CONFIG.player.radius;
+                this.shieldDirection = 0; // 0: up, 1: right, 2: down, 3: left
+                this.shieldAngles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+            }
+
+            rotate(direction) {
+                this.shieldDirection = direction;
+            }
+
+            draw(ctx) {
+                // 플레이어 중심 원
+                ctx.save();
+                
+                // 외곽 원
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#0a0a1a';
+                ctx.fill();
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#00f3ff';
+                ctx.stroke();
+
+                // 내부 원들
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 15, 0, Math.PI * 2);
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.7)';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+
+                ctx.restore();
+
+                // 방패
+                this.drawShield(ctx);
+            }
+
+            drawShield(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.shieldAngles[this.shieldDirection]);
+
+                // 방패 호(arc)
+                ctx.beginPath();
+                ctx.arc(0, 0, CONFIG.player.shieldDistance, -Math.PI / 4, Math.PI / 4);
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 8;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = '#00ff88';
+                ctx.stroke();
+
+                // 방패 끝부분 강조
+                const angle1 = -Math.PI / 4;
+                const angle2 = Math.PI / 4;
+                const dist = CONFIG.player.shieldDistance;
+
+                ctx.beginPath();
+                ctx.arc(Math.cos(angle1) * dist, Math.sin(angle1) * dist, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff88';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(Math.cos(angle2) * dist, Math.sin(angle2) * dist, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff88';
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // 방패와의 충돌 체크
+            checkShieldCollision(arrow) {
+                const angle = Math.atan2(arrow.y - this.y, arrow.x - this.x);
+                const shieldAngle = this.shieldAngles[this.shieldDirection];
+                
+                let angleDiff = angle - shieldAngle;
+                // 각도를 -π ~ π 범위로 정규화
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                // 방패의 보호 범위 (±45도) 내에 있는지 확인
+                if (Math.abs(angleDiff) < Math.PI / 4) {
+                    // 방패 거리 범위 내에 있는지 확인
+                    const distToPlayer = distance(this.x, this.y, arrow.x, arrow.y);
+                    if (distToPlayer < CONFIG.player.shieldDistance + 15 && distToPlayer > this.radius) {
+                        // 방패 위의 충돌 지점 계산
+                        const collisionX = this.x + Math.cos(angle) * CONFIG.player.shieldDistance;
+                        const collisionY = this.y + Math.sin(angle) * CONFIG.player.shieldDistance;
+                        return { hit: true, x: collisionX, y: collisionY };
+                    }
+                }
+                return null;
+            }
+
+            // 플레이어 본체와의 충돌 체크
+            checkPlayerCollision(arrow) {
+                const dist = distance(this.x, this.y, arrow.x, arrow.y);
+                // 플레이어 반경 기준으로 충돌 체크
+                if (dist < this.radius + 10) {
+                    return { hit: true, x: arrow.x, y: arrow.y };
+                }
+                return null;
+            }
+        }
+
+        // ==================== 화살 클래스 ====================
+        class Arrow {
+            constructor(direction, speed) {
+                this.direction = direction; // 0: from top, 1: from right, 2: from bottom, 3: from left
+                this.speed = speed;
+                this.color = randomChoice(CONFIG.arrow.colors);
+                this.trail = [];
+                
+                // 시작 위치 설정
+                switch(direction) {
+                    case 0: // from top
+                        this.x = CONFIG.player.x + (Math.random() - 0.5) * 100;
+                        this.y = -20;
+                        this.vx = 0;
+                        this.vy = this.speed;
+                        break;
+                    case 1: // from right
+                        this.x = CONFIG.canvas.width + 20;
+                        this.y = CONFIG.player.y + (Math.random() - 0.5) * 100;
+                        this.vx = -this.speed;
+                        this.vy = 0;
+                        break;
+                    case 2: // from bottom
+                        this.x = CONFIG.player.x + (Math.random() - 0.5) * 100;
+                        this.y = CONFIG.canvas.height + 20;
+                        this.vx = 0;
+                        this.vy = -this.speed;
+                        break;
+                    case 3: // from left
+                        this.x = -20;
+                        this.y = CONFIG.player.y + (Math.random() - 0.5) * 100;
+                        this.vx = this.speed;
+                        this.vy = 0;
+                        break;
+                }
+
+                // 플레이어 중심을 향하도록 조정
+                const angleToPlayer = Math.atan2(CONFIG.player.y - this.y, CONFIG.player.x - this.x);
+                this.vx = Math.cos(angleToPlayer) * this.speed;
+                this.vy = Math.sin(angleToPlayer) * this.speed;
+            }
+
+            update() {
+                // 궤적 추가
+                this.trail.push({x: this.x, y: this.y, alpha: 1});
+                if (this.trail.length > 15) {
+                    this.trail.shift();
+                }
+
+                // 위치 업데이트
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 궤적 페이드
+                this.trail.forEach((t, i) => {
+                    t.alpha = i / this.trail.length * 0.6;
+                });
+            }
+
+            draw(ctx) {
+                // 궤적 그리기
+                ctx.save();
+                this.trail.forEach(t => {
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = t.alpha;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.color;
+                    ctx.fill();
+                });
+                ctx.restore();
+
+                // 화살 본체
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // 화살 방향 회전
+                const angle = Math.atan2(this.vy, this.vx);
+                ctx.rotate(angle);
+
+                // 화살 몸통
+                ctx.beginPath();
+                ctx.moveTo(10, 0);
+                ctx.lineTo(-10, 0);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.color;
+                ctx.stroke();
+
+                // 화살 촉
+                ctx.beginPath();
+                ctx.moveTo(10, 0);
+                ctx.lineTo(0, -8);
+                ctx.lineTo(0, 8);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 25;
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.x < -50 || this.x > CONFIG.canvas.width + 50 ||
+                       this.y < -50 || this.y > CONFIG.canvas.height + 50;
+            }
+        }
+
+        // ==================== 파티클 클래스 ====================
+        class Particle {
+            constructor(x, y, color, type = 'explosion') {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.type = type;
+                this.life = 1;
+                this.maxLife = 1;
+
+                if (type === 'explosion') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 5 + 2;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.size = Math.random() * 4 + 2;
+                } else if (type === 'spark') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 10 + 5;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.size = Math.random() * 4 + 2;
+                } else if (type === 'shield-impact') {
+                    // 방패 충돌 시 방사형으로 퍼지는 파티클
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 8 + 3;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.size = Math.random() * 5 + 3;
+                }
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.025;
+                this.vx *= 0.96;
+                this.vy *= 0.96;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        // ==================== 파티클 매니저 ====================
+        class ParticleManager {
+            constructor() {
+                this.particles = [];
+            }
+
+            addExplosion(x, y, color, count = 20) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color, 'explosion'));
+                }
+            }
+
+            addSparks(x, y, color, count = 15) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color, 'spark'));
+                }
+            }
+
+            addShieldImpact(x, y, count = 30) {
+                // 방패 충돌 시 화려한 이펙트
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, '#00ff88', 'shield-impact'));
+                }
+                // 추가로 흰색 섬광 효과
+                for (let i = 0; i < 10; i++) {
+                    this.particles.push(new Particle(x, y, '#ffffff', 'spark'));
+                }
+            }
+
+            update() {
+                this.particles.forEach(p => p.update());
+                this.particles = this.particles.filter(p => !p.isDead());
+            }
+
+            draw(ctx) {
+                this.particles.forEach(p => p.draw(ctx));
+            }
+        }
+
+        // ==================== 게임 클래스 ====================
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.player = new Player(CONFIG.player.x, CONFIG.player.y);
+                this.arrows = [];
+                this.particles = new ParticleManager();
+                
+                this.score = 0;
+                this.startTime = 0;
+                this.elapsedTime = 0;
+                this.gameState = 'start'; // 'start', 'playing', 'gameover'
+                
+                this.lastArrowSpawn = 0;
+                this.arrowSpawnInterval = CONFIG.arrow.spawnInterval;
+                this.currentSpeed = CONFIG.arrow.initialSpeed;
+                this.speedMultiplier = 1.0;
+                this.lastDifficultyIncrease = 0;
+
+                this.lastFrameTime = 0;
+                this.animationId = null;
+
+                this.setupInput();
+            }
+
+            setupInput() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        if (this.gameState === 'start') {
+                            this.start();
+                        } else if (this.gameState === 'gameover') {
+                            this.restart();
+                        }
+                    }
+
+                    if (this.gameState === 'playing') {
+                        switch(e.key.toLowerCase()) {
+                            case 'w':
+                            case 'arrowup':
+                                this.player.rotate(0);
+                                break;
+                            case 'd':
+                            case 'arrowright':
+                                this.player.rotate(1);
+                                break;
+                            case 's':
+                            case 'arrowdown':
+                                this.player.rotate(2);
+                                break;
+                            case 'a':
+                            case 'arrowleft':
+                                this.player.rotate(3);
+                                break;
+                        }
+                    }
+                });
+            }
+
+            start() {
+                this.gameState = 'playing';
+                this.score = 0;
+                this.startTime = Date.now();
+                this.elapsedTime = 0;
+                this.arrows = [];
+                this.particles = new ParticleManager();
+                this.lastArrowSpawn = 0;
+                this.arrowSpawnInterval = CONFIG.arrow.spawnInterval;
+                this.currentSpeed = CONFIG.arrow.initialSpeed;
+                this.speedMultiplier = 1.0;
+                this.lastDifficultyIncrease = 0;
+                
+                document.getElementById('startScreen').style.display = 'none';
+                document.getElementById('gameOverScreen').style.display = 'none';
+                
+                this.lastFrameTime = Date.now();
+                this.gameLoop();
+            }
+
+            restart() {
+                this.start();
+            }
+
+            gameLoop() {
+                if (this.gameState !== 'playing') return;
+
+                const now = Date.now();
+                const deltaTime = now - this.lastFrameTime;
+                this.lastFrameTime = now;
+
+                this.update(now, deltaTime);
+                this.render();
+
+                this.animationId = requestAnimationFrame(() => this.gameLoop());
+            }
+
+            update(now, deltaTime) {
+                // 시간 업데이트
+                this.elapsedTime = (now - this.startTime) / 1000;
+                document.getElementById('time').textContent = `Time: ${this.elapsedTime.toFixed(1)}s`;
+
+                // 난이도 증가 (5초마다)
+                if (now - this.lastDifficultyIncrease > CONFIG.difficulty.speedIncreaseInterval) {
+                    this.speedMultiplier *= CONFIG.difficulty.speedMultiplier;
+                    this.currentSpeed = CONFIG.arrow.initialSpeed * this.speedMultiplier;
+                    this.arrowSpawnInterval = Math.max(400, this.arrowSpawnInterval - CONFIG.difficulty.spawnIntervalDecrease);
+                    this.lastDifficultyIncrease = now;
+                    
+                    // 속도 표시 업데이트
+                    document.getElementById('speedIndicator').textContent = `Speed: x${this.speedMultiplier.toFixed(1)}`;
+                }
+
+                // 화살 생성
+                if (now - this.lastArrowSpawn > this.arrowSpawnInterval) {
+                    const direction = Math.floor(Math.random() * 4);
+                    const arrow = new Arrow(direction, this.currentSpeed);
+                    this.arrows.push(arrow);
+                    this.lastArrowSpawn = now;
+                }
+
+                // 화살 업데이트
+                this.arrows.forEach(arrow => arrow.update());
+
+                // 충돌 감지
+                for (let i = this.arrows.length - 1; i >= 0; i--) {
+                    const arrow = this.arrows[i];
+                    
+                    // 먼저 방패 충돌 체크 (우선순위 높음)
+                    const shieldCollision = this.player.checkShieldCollision(arrow);
+                    if (shieldCollision) {
+                        // 막기 성공 - 방패 위치에서 이펙트
+                        this.score += 10;
+                        document.getElementById('score').textContent = `Score: ${this.score}`;
+                        this.particles.addShieldImpact(shieldCollision.x, shieldCollision.y, 35);
+                        this.arrows.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // 방패에 막히지 않았다면 플레이어 본체 충돌 체크
+                    const playerCollision = this.player.checkPlayerCollision(arrow);
+                    if (playerCollision) {
+                        // 피격 - 게임 오버 (플레이어 위치 기준)
+                        this.gameOver(playerCollision.x, playerCollision.y);
+                        return;
+                    }
+                }
+
+                // 화면 밖 화살 제거
+                this.arrows = this.arrows.filter(arrow => !arrow.isOffScreen());
+
+                // 파티클 업데이트
+                this.particles.update();
+            }
+
+            render() {
+                // 배경
+                const gradient = this.ctx.createRadialGradient(
+                    CONFIG.canvas.width / 2, CONFIG.canvas.height / 2, 0,
+                    CONFIG.canvas.width / 2, CONFIG.canvas.height / 2, CONFIG.canvas.width / 2
+                );
+                gradient.addColorStop(0, '#1a1a3a');
+                gradient.addColorStop(1, '#0a0a1a');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, CONFIG.canvas.width, CONFIG.canvas.height);
+
+                // 파티클 (배경)
+                this.particles.draw(this.ctx);
+
+                // 화살
+                this.arrows.forEach(arrow => arrow.draw(this.ctx));
+
+                // 플레이어
+                this.player.draw(this.ctx);
+            }
+
+            gameOver(hitX, hitY) {
+                this.gameState = 'gameover';
+                
+                // 대형 폭발 효과
+                this.particles.addExplosion(hitX, hitY, '#ff006e', 60);
+                
+                // 결과 표시
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('finalTime').textContent = this.elapsedTime.toFixed(1);
+                
+                setTimeout(() => {
+                    document.getElementById('gameOverScreen').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        // ==================== 게임 시작 ====================
+        const game = new Game();
+    </script>
+</body>
+</html>
